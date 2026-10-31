@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SerialPill</title>
+<link rel="stylesheet" href="/blades.css">
+<link rel="stylesheet" href="/xterm.css">
+<style>
+/* Blades CSS 3 (Pico v2 successor) with the dark palette of the stock Pill web UI */
+:root[data-theme=dark]{
+  --pico-font-size:100%;--pico-border-radius:0.25rem;--pico-color:#fff;--pico-background-color:#11191f;
+  --pico-h1-color:#fff;--pico-h2-color:#fff;--pico-h3-color:#fff;--pico-h4-color:#edf0f3;--pico-h5-color:#edf0f3;--pico-h6-color:#edf0f3;
+  --pico-muted-color:#73828c;--pico-muted-border-color:#1f2d38;
+  --pico-primary:#1095c1;--pico-primary-background:#1095c1;--pico-primary-border:#1095c1;--pico-primary-underline:rgba(16,149,193,.5);
+  --pico-primary-hover:#19aee0;--pico-primary-hover-background:#0d84ab;--pico-primary-hover-border:#0d84ab;
+  --pico-primary-focus:rgba(16,149,193,.25);--pico-primary-inverse:#fff;
+  --pico-secondary:#596b78;--pico-secondary-background:#596b78;--pico-secondary-border:#596b78;
+  --pico-secondary-hover:#73828c;--pico-secondary-hover-background:#73828c;--pico-secondary-hover-border:#73828c;--pico-secondary-inverse:#fff;
+  --pico-form-element-background-color:#11191f;--pico-form-element-active-background-color:#11191f;
+  --pico-form-element-border-color:#374956;--pico-form-element-active-border-color:#1095c1;--pico-form-element-focus-color:rgba(16,149,193,.25);
+  --pico-form-element-color:#fff;--pico-switch-background-color:#374956;--pico-switch-checked-background-color:#1095c1;
+  --pico-card-background-color:#141e26;--pico-table-border-color:#1f2d38;--pico-progress-background-color:#24333e;--pico-progress-color:#1095c1;
+  --pico-del-color:#c62828;--pico-ins-color:#388e3c;--pico-code-background-color:#18232c;
+  /* tokens of the stock UI */
+  --big-font:1.1rem;--normal-font:1rem;--medium-font:0.9rem;--small-font:0.8rem;--smaller-font:0.7rem;
+  --card-background:rgba(255,255,255,.1);--background-opacity:rgba(255,255,255,.05);--muted-text:rgb(175,187,196);--card-radius:0.5rem}
+.hide{display:none!important}
+/* no stray text cursor outside fields (e.g. with browser caret browsing on) */
+body{caret-color:transparent}
+input,textarea,select,[contenteditable]{caret-color:auto}
+/* layout: icon rail + page, centred */
+#app{display:flex;justify-content:center;min-height:100vh}
+.rail{width:170px;flex:none;display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;gap:.35rem;padding:74px 1.5rem 0 0}
+.rail a{display:flex;align-items:center;gap:.65rem;padding:.4rem .5rem;border-radius:var(--pico-border-radius);font-size:var(--medium-font);
+  --pico-color:#fff;color:#fff;text-decoration:none;--pico-background-color:transparent;--pico-text-decoration:none}
+.rail svg{stroke:var(--pico-h4-color);flex:none}
+.rail a.on,.rail a:hover{--pico-color:var(--pico-primary);color:var(--pico-primary)}
+.rail a.on svg,.rail a:hover svg{stroke:var(--pico-primary)}
+.page{flex:1;min-width:0;max-width:808px;padding:1rem 1rem 0 0;display:flex;flex-direction:column}
+header.top{display:flex;align-items:center;height:56px;padding:0}
+header.top .title{font-size:var(--normal-font);margin-right:.5rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header.top .icons{margin-left:auto;display:flex;gap:1rem;align-items:center}
+header.top .icons svg{stroke:var(--pico-secondary-hover)}
+header.top .icons .on svg{stroke:var(--pico-primary)}
+header.top .icons span{cursor:pointer;display:flex}
+header.top .icons span:hover svg{stroke:var(--pico-primary-hover)}
+main.view{flex:1;padding:0}
+footer.foot{font-size:var(--smaller-font);color:var(--pico-h4-color);padding:1.5rem 0 1rem}
+footer.foot span+span:before{content:"|";margin:0 .4rem;color:var(--muted-text)}
+/* blocks of the stock UI */
+.card-generic{padding:1rem;background-color:var(--background-opacity);border-radius:var(--card-radius);margin-bottom:1rem}
+.card-generic>h2{font-size:var(--normal-font);--pico-color:var(--pico-h6-color);margin-bottom:1.5rem}
+h1.sect{font-size:var(--normal-font);--pico-color:var(--pico-h6-color);margin:1.5rem 0 1rem}
+h1.sect:first-child{margin-top:.5rem}
+.mac-info{font-size:var(--medium-font);margin-bottom:.5rem}
+.mac-info .v{color:var(--pico-primary);word-break:break-all}
+.copyable{cursor:pointer}
+.copyable::after{color:white;content:'Copy';border-radius:var(--pico-border-radius);background-color:var(--pico-primary);margin-left:.5rem;
+  font-size:var(--smaller-font);padding:.1rem .25rem .2rem;vertical-align:middle;position:relative;top:-3px}
+.copyable.copied::after{content:'Copied!';background-color:var(--pico-ins-color)}
+.input-description{font-size:var(--medium-font);color:var(--muted-text);display:block;margin:.25rem 0 1rem;font-style:italic}
+.form-column-2{display:grid;gap:0 1rem;grid-template-columns:repeat(2,1fr)}
+
+.button-regular{width:fit-content;display:inline-block;margin:.5rem .5rem 0 0;padding:.7rem 1.4rem;white-space:nowrap}
+.button-compact{width:fit-content;display:inline-block;margin:0;padding:.25rem .5rem;font-size:var(--small-font);white-space:nowrap}
+button.danger{--pico-background-color:var(--pico-del-color);--pico-border-color:var(--pico-del-color)}
+.msg{font-size:var(--medium-font);min-height:1.35rem;margin-top:.5rem}.msg.e{color:var(--pico-del-color)}.msg.o{color:var(--pico-ins-color)}
+label.l{font-size:var(--medium-font)}
+/* firmware page (stock layout) */
+.fw-h{margin-bottom:.25rem!important}
+.fw-gap{margin-top:1.5rem}
+.fw-sub{margin-top:0}
+.fw-l{color:var(--pico-primary);margin-bottom:.25rem}
+.fw-l .copyable::after{top:-1px}
+input[readonly]{--pico-background-color:var(--pico-muted-border-color);color:var(--muted-text)}
+.fw-t{margin:.25rem 0 .5rem}
+.fw-table th{color:var(--muted-text);font-size:var(--medium-font)}
+.drop{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:.2rem;padding:1rem;margin:0 0 .5rem;
+  background:var(--pico-muted-border-color);border:2px dashed var(--pico-primary-focus);border-radius:5px;cursor:pointer;text-align:center}
+.drop.over{background:var(--pico-primary-focus);border-color:var(--pico-primary)}
+.drop svg{stroke:var(--pico-primary)}
+.drop-text{color:var(--pico-primary);font-size:var(--medium-font)}
+.drop-file{font-size:var(--medium-font);color:var(--pico-color);min-height:1.2rem}
+.drop .button-regular{margin:.25rem 0 0}
+/* settings list rows */
+.rows{display:flex;flex-direction:column;gap:.25rem}
+.row{display:flex;align-items:center;gap:.75rem;background:var(--background-opacity);border-radius:var(--card-radius);
+  padding:.75rem 1rem .75rem .6rem;cursor:pointer;min-height:3.5rem;margin:0}
+.row:hover{background:rgba(255,255,255,.08)}
+.tile{width:2rem;height:2rem;flex:none;border-radius:6px;background:var(--card-background);display:flex;align-items:center;justify-content:center}
+.tile svg{width:1.25rem;height:1.25rem;stroke:var(--pico-primary)}
+.row .t{font-size:var(--medium-font);font-weight:700;display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
+.row .s{font-size:var(--small-font);color:var(--muted-text);line-height:1.4}
+.row .s .v{color:var(--pico-primary)}
+.row .go{margin-left:auto;flex:none;stroke:var(--pico-secondary-hover)}
+.chip{display:inline-flex;align-items:center;gap:.25rem;font-size:var(--small-font);padding:.25rem .4rem;border-radius:var(--pico-border-radius);
+  background:var(--pico-primary);color:#fff;border:0;margin:0;width:auto;line-height:1.2;cursor:pointer}
+.chip svg{stroke:#fff}
+.chip:hover{background:var(--pico-primary-hover-background)}
+.warnbar{background:rgba(198,40,40,.15);border:1px solid var(--pico-del-color);border-radius:var(--card-radius);padding:.6rem 1rem;margin:0 0 1rem;font-size:var(--medium-font)}
+/* serial pinout */
+.pinout{display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
+.pinout svg{flex:none;max-width:100%}
+.pins{flex:1;min-width:260px;font-size:var(--medium-font)}
+.pins table{margin:0}
+.pins td{padding:.35rem .5rem}
+.pins .pn{color:var(--pico-primary);font-weight:700;white-space:nowrap}
+.pins .x{color:var(--pico-del-color)}
+.back{display:inline-flex;align-items:center;gap:.25rem;font-size:var(--medium-font);margin:.5rem 0 1rem;cursor:pointer;text-decoration:none}
+table td,table th{font-size:var(--medium-font);background:transparent}
+.fw-table{display:table!important;width:100%;white-space:normal!important}.fw-table td:first-child{word-break:break-all}
+code{padding:.1rem .3rem}
+/* console */
+.bar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:.75rem}
+.bar select{width:auto;margin:0;padding:.35rem 2.25rem .35rem .75rem;font-size:var(--medium-font);height:auto}
+.bar .st{font-size:var(--medium-font);color:var(--muted-text);margin-right:auto}
+.bar .st.on{color:var(--pico-ins-color)}
+#term{height:calc(100vh - 300px);min-height:300px;border-radius:var(--pico-border-radius);overflow:hidden;background:#0b1116;padding:6px}
+/* login */
+#login{max-width:420px;margin:12vh auto;padding:0 1rem}
+#login .brand{display:flex;align-items:center;gap:.6rem;font-size:var(--big-font);margin-bottom:1rem}
+#login button{width:100%}
+#login #lskip{margin-top:.5rem}
+.banner{white-space:pre-wrap;font-family:var(--pico-font-family-monospace);font-size:var(--small-font);color:var(--muted-text);margin:0 0 1rem}
+/* responsive: tablet and phone */
+@media (max-width:768px){
+  #app{flex-direction:column;justify-content:flex-start}
+  .page{max-width:none;width:100%;padding:0 1rem calc(64px + env(safe-area-inset-bottom))}
+  .rail{position:fixed;left:0;right:0;bottom:0;z-index:10;width:auto;height:calc(56px + env(safe-area-inset-bottom));
+    flex-direction:row;justify-content:space-around;align-items:center;gap:0;padding:0 0 env(safe-area-inset-bottom);
+    background:#141e26;border-top:1px solid var(--pico-muted-border-color)}
+  .rail a{flex-direction:column;gap:.15rem;padding:.35rem .4rem;font-size:var(--smaller-font);flex:1;justify-content:center}
+  header.top{height:52px}
+  header.top .icons{gap:.6rem}
+  header.top .icons svg{width:20px;height:20px}
+  .form-column-2{grid-template-columns:1fr}
+  table{display:block;overflow-x:auto;white-space:nowrap}
+  .bar .st{flex-basis:100%}
+  .bar select{flex:1 1 auto;min-width:0}
+  .bar #tenter{flex-basis:100%}
+  .bar button{flex:none}
+  #term{height:calc(100vh - 330px);min-height:240px;padding:4px}
+  .card-generic{padding:.85rem}
+  .mac-info .v{word-break:break-all}
+  .button-regular{padding:.6rem 1.1rem}
+}
+@media (max-width:420px){
+  header.top .icons{gap:.45rem}
+  header.top .icons span:nth-child(-n+2){display:none}   /* keep SSH, HTTPS, Wi-Fi on small phones */
+  .row{padding:.65rem .75rem .65rem .5rem}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <g id="i-code"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></g>
+    <g id="i-cloud"><path d="M16 16l-4-4-4 4M12 12v9M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></g>
+    <g id="i-home"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></g>
+    <g id="i-cog"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></g>
+    <g id="i-list"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></g>
+    <g id="i-wrench"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/></g>
+    <g id="i-term"><path d="m4 17 6-6-6-6M12 19h8"/></g>
+    <g id="i-wifi"><path d="M5 12.6a10 10 0 0 1 14 0M8.5 16.1a5 5 0 0 1 7 0M2 8.8a15 15 0 0 1 20 0M12 20h.01"/></g>
+    <g id="i-ap"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.5M7.8 16.2a6 6 0 0 1 0-8.5M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2"/></g>
+    <g id="i-lock"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></g>
+    <g id="i-usb"><circle cx="10" cy="7" r="1"/><circle cx="4" cy="20" r="1"/><path d="M4.7 19.3 19 5M21 3l-3 1 2 2zM9.3 7.7 5 12l4 4 3-3M14 6l3 3-4 4"/></g>
+    <g id="i-plug"><path d="M12 22v-5M9 8V2M15 8V2M18 8v5a6 6 0 0 1-12 0V8z"/></g>
+    <g id="i-users"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2M16 3.1a4 4 0 0 1 0 7.8M22 21v-2a4 4 0 0 0-3-3.9"/></g>
+    <g id="i-shield"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></g>
+    <g id="i-key"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></g>
+    <g id="i-file"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></g>
+    <g id="i-chip"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></g>
+    <g id="i-cert"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20l2-4M16 20l-2-4M7 8h10M7 12h6"/></g>
+    <g id="i-down"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></g>
+    <g id="i-restore"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></g>
+    <g id="i-power"><path d="M18.4 6.6a9 9 0 1 1-12.7 0M12 2v10"/></g>
+    <g id="i-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></g>
+    <g id="i-chev"><path d="m9 18 6-6-6-6"/></g>
+    <g id="i-info"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></g>
+    <g id="i-globe"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></g>
+    <g id="i-reset"><path d="M21 12a9 9 0 0 0-15-6.7L3 8M3 3v5h5M3 12a9 9 0 0 0 15 6.7l3-2.7M21 21v-5h-5"/></g>
+    <g id="i-arrow"><path d="M5 12h14M12 5l7 7-7 7"/></g>
+    <g id="i-left"><path d="m15 18-6-6 6-6"/></g>
+  </defs>
+</svg>
+
+<!-- ======================================================= login / first setup -->
+<div id="login" class="hide">
+  <div class="brand"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1095c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-term"/></svg><span id="ltitle">SerialPill</span></div>
+  <div class="card-generic">
+    <pre class="banner hide" id="lbanner"></pre>
+    <h2 id="lhead">Log in</h2>
+    <small class="input-description" id="lhint"></small>
+    <div><label class="l">User</label><input id="lu" value="admin" autocomplete="username"></div>
+    <div><label class="l">Password</label><input id="lp" type="password" autocomplete="current-password"></div>
+    <div class="hide" id="lp2w"><label class="l">Repeat password</label><input id="lp2" type="password" autocomplete="new-password"></div>
+    <div class="hide" id="lsetup">
+      <label><input type="checkbox" id="ls_redirect">Redirect HTTP to HTTPS</label>
+      <label><input type="checkbox" id="ls_telnet">Enable telnet</label>
+      <small class="input-description">HTTPS uses a self-signed certificate created on this device until you upload your own (Settings → TLS configuration).</small>
+    </div>
+    <button class="button-regular" id="lbtn">Log in</button>
+    <button class="button-regular outline hide" id="lskip">Skip</button>
+    <div class="msg e" id="lmsg"></div>
+  </div>
+</div>
+
+<!-- ======================================================= application -->
+<div id="app" class="hide">
+  <nav class="rail">
+    <a href="#/" data-r="home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg><span>Console</span></a>
+    <a href="#/settings" data-r="settings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cog"/></svg><span>Settings</span></a>
+    <a href="#/log" data-r="log" data-admin><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-list"/></svg><span>Audit log</span></a>
+    <a href="#/system" data-r="system" data-admin><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-down"/></svg><span>Firmware</span></a>
+    <a href="#" onclick="logout();return false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-out"/></svg><span>Log out</span></a>
+  </nav>
+  <div class="page">
+    <header class="top">
+      <span class="title" id="hname">SerialPill</span>
+      <div class="icons">
+        <span id="ic-usb" title="USB-C console port" onclick="go('settings/serial')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-usb"/></svg></span>
+        <span id="ic-telnet" title="Telnet" onclick="go('settings/telnet')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plug"/></svg></span>
+        <span id="ic-ssh" title="SSH" onclick="go('settings/ssh')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-term"/></svg></span>
+        <span id="ic-tls" title="HTTPS" onclick="go('settings/tls')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lock"/></svg></span>
+        <span id="ic-wifi" title="Wi-Fi" onclick="go('settings/wifi')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-wifi"/></svg></span>
+      </div>
+    </header>
+    <main class="view">
+
+<!-- ---------------------------------------------------- home: console -->
+<section data-page="home">
+  <div class="card-generic">
+    <div class="bar">
+      <span class="st" id="tstat">connecting…</span>
+      <select id="tbaud" title="Baud rate"></select>
+      <select id="tfmt" title="Frame format"></select>
+      <select id="tenter" data-admin title="What the Enter key sends"><option value="raw">Enter: as sent by terminal</option><option value="cr">Enter: CR</option><option value="crlf">Enter: CR LF</option><option value="lf">Enter: LF</option></select>
+      <button class="button-compact outline" onclick="api('POST','/api/term?break=1','')">BREAK</button>
+      <button class="button-compact outline" onclick="term&&term.clear()">Clear</button>
+    </div>
+    <div id="term"></div>
+    <small class="input-description">Ctrl+] then b = BREAK, s = status, q = disconnect</small>
+  </div>
+  <div class="card-generic"><h2>Console sessions</h2><table id="sess"></table></div>
+</section>
+
+<!-- ---------------------------------------------------- settings list -->
+<section data-page="settings">
+  <div class="warnbar hide" id="skipwarn">No administrator password is set – anyone on this network can open this page and change the settings. SSH and telnet logins stay disabled. <a href="#/settings/auth">Set a password</a></div>
+  <h1 class="sect">Component settings</h1>
+  <div class="rows">
+    <div class="row" data-admin onclick="go('settings/serial')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chip"/></svg></div>
+      <div><div class="t">Serial port</div><div class="s" id="sub-serial"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+  </div>
+  <h1 class="sect" data-admin>Network settings</h1>
+  <div class="rows" data-admin>
+    <div class="row" onclick="go('settings/wifi')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-wifi"/></svg></div>
+      <div><div class="t">Wi-Fi</div><div class="s" id="sub-wifi"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+    <div class="row" onclick="go('settings/ap')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-ap"/></svg></div>
+      <div><div class="t">Access point</div><div class="s" id="sub-ap"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+  </div>
+  <h1 class="sect" data-admin>Access settings</h1>
+  <div class="rows" data-admin>
+    <div class="row" onclick="go('settings/ssh')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-term"/></svg></div>
+      <div><div class="t">SSH</div><div class="s" id="sub-ssh"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+    <div class="row" onclick="go('settings/telnet')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plug"/></svg></div>
+      <div><div class="t">Telnet</div><div class="s" id="sub-telnet"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+    <div class="row" onclick="go('settings/web')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lock"/></svg></div>
+      <div><div class="t">Web access</div><div class="s" id="sub-web"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+    <div class="row" onclick="go('settings/banner')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-file"/></svg></div>
+      <div><div class="t">Login banner</div><div class="s" id="sub-banner"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+  </div>
+  <h1 class="sect">Users</h1>
+  <div class="rows">
+    <div class="row" onclick="go('settings/users')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-users"/></svg></div>
+      <div><div class="t"><span id="t-users">Users and SSH keys</span></div><div class="s" id="sub-users"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+    <div class="row" data-admin onclick="go('settings/tacacs')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-shield"/></svg></div>
+      <div><div class="t">TACACS+</div><div class="s" id="sub-tacacs"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+  </div>
+  <h1 class="sect" data-admin>Device settings</h1>
+  <div class="rows" data-admin>
+    <div class="row" onclick="go('settings/device')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-info"/></svg></div>
+      <div><div class="t">Device name</div><div class="s" id="sub-device"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+    <div class="row" style="cursor:default"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-power"/></svg></div>
+      <div><div class="t">Reboot device <button class="chip" onclick="event.stopPropagation();sysop('/api/reboot','Reboot now?','m_dev')">Reboot<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-arrow"/></svg></button></div></div></div>
+    <div class="row" style="cursor:default"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-reset"/></svg></div>
+      <div><div class="t">Factory reset <button class="chip" onclick="event.stopPropagation();sysop('/api/factory-reset','Erase all settings (users, Wi-Fi, keys)? The SSH host key is kept.','m_dev')">Reset<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-arrow"/></svg></button></div></div></div>
+    <div class="row" onclick="go('settings/time')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-globe"/></svg></div>
+      <div><div class="t">Location and time</div><div class="s" id="sub-time"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+    <div class="row" onclick="go('settings/auth')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lock"/></svg></div>
+      <div><div class="t">Authentication</div><div class="s" id="sub-auth"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+    <div class="row" onclick="go('system')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chip"/></svg></div>
+      <div><div class="t">Firmware</div><div class="s" id="sub-fw"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+    <div class="row" onclick="go('settings/debug')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-term"/></svg></div>
+      <div><div class="t">Debug</div><div class="s" id="sub-debug"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+    <div class="row" onclick="go('settings/tls')"><div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-shield"/></svg></div>
+      <div><div class="t">TLS configuration</div><div class="s" id="sub-tls"></div></div><svg class="go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-chev"/></svg></div>
+  </div>
+  <div class="msg" id="m_dev"></div>
+</section>
+
+<!-- ---------------------------------------------------- settings: serial -->
+<section data-page="settings/serial">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic"><h2>Serial port</h2>
+    <div class="mac-info">TX: <span class="v" id="ser-tx"></span></div>
+    <div class="mac-info">RX: <span class="v" id="ser-rx"></span></div>
+    <div class="mac-info">Traffic: <span class="v" id="ser-tr"></span></div>
+  </div>
+  <div class="card-generic"><h2>Pinout</h2>
+    <div class="pinout">
+      <svg width="230" height="150" viewBox="0 0 230 150" fill="none" aria-label="Micro-USB B socket, front view">
+        <text x="115" y="16" text-anchor="middle" fill="#afbbc4" font-size="12">front view of the Pill's micro-USB socket</text>
+        <path d="M30 40h170l-14 34c-3 7-9 11-17 11H61c-8 0-14-4-17-11z" stroke="#1095c1" stroke-width="3" fill="#1f2d38"/>
+        <rect x="58" y="50" width="114" height="16" rx="3" fill="#11191f" stroke="#374956"/>
+        <g fill="#e0b84a"><rect x="66" y="54" width="14" height="8" rx="1"/><rect x="86" y="54" width="14" height="8" rx="1"/><rect x="106" y="54" width="14" height="8" rx="1"/><rect x="126" y="54" width="14" height="8" rx="1"/><rect x="146" y="54" width="14" height="8" rx="1"/></g>
+        <g fill="#fff" font-size="13" font-weight="700" text-anchor="middle"><text x="73" y="104">1</text><text x="93" y="104">2</text><text x="113" y="104">3</text><text x="133" y="104">4</text><text x="153" y="104">5</text></g>
+        <g font-size="10" text-anchor="middle"><text x="73" y="120" fill="#c62828">5V</text><text x="93" y="120" fill="#1095c1" id="pin2l">TXD</text><text x="113" y="120" fill="#1095c1" id="pin3l">RXD</text><text x="133" y="120" fill="#73828c">ID</text><text x="153" y="120" fill="#afbbc4">GND</text></g>
+        <path d="M73 70v20M93 70v20M113 70v20M133 70v20M153 70v20" stroke="#374956"/>
+      </svg>
+      <div class="pins"><table>
+        <tr><td class="pn">1 · 5V</td><td>Power output <span class="x">–x–</span> ⚠️ do not connect to the external device</td></tr>
+        <tr><td class="pn" id="pin2n">2 · IO1</td><td id="pin2d">TXD (output) → external device RXD</td></tr>
+        <tr><td class="pn" id="pin3n">3 · IO2</td><td id="pin3d">RXD (input) ← external device TXD</td></tr>
+        <tr><td class="pn">4 · IO3</td><td>OTG_ID (input) <span class="x">–x–</span> unused (tied to GND inside the cable)</td></tr>
+        <tr><td class="pn">5 · GND</td><td>Signal ground ↔ external device GND</td></tr>
+      </table></div>
+    </div>
+    <small class="input-description">The original UART pinout of The Pill by Shelly is compatible with standard micro-USB serial consoles, using the same pin mapping as the AP-CBL-SERU (JY728A) cable – e.g. the console port of Aruba access points (2 RXD, 3 TXD, 4/5 GND).</small>
+  </div>
+  <div class="card-generic"><h2>Serial port settings</h2>
+    <div class="form-column-2">
+      <div><label class="l">Baud rate</label><select id="c_baud"></select></div>
+      <div><label class="l">Frame format</label><select id="c_format"></select></div>
+      <div><label class="l">Enter key sends</label><select id="c_enter"><option value="raw">as sent by terminal</option><option value="cr">CR</option><option value="crlf">CR LF</option><option value="lf">LF</option></select></div>
+    </div>
+    <label><input type="checkbox" id="c_swap" onchange="pinout()">TX/RX Swap Crossover</label>
+    <small class="input-description">Off = standard console pinout (pin 2 TXD, pin 3 RXD) for a straight cable such as AP-CBL-SERU. On = pin 2 RXD, pin 3 TXD, for devices wired the other way round or for two Pills on a straight cable.</small>
+    <label><input type="checkbox" role="switch" id="c_out_crlf">Show bare LF from the device as CR LF</label>
+    <label><input type="checkbox" role="switch" id="c_echo">Local echo in SSH and telnet sessions (the web console always echoes)</label>
+    <label><input type="checkbox" role="switch" id="c_usb_bridge">USB-C is a console COM port (no login; reboot to apply)</label>
+    <small class="input-description">"As sent by terminal" is fully transparent (binary transfers such as XMODEM). The other modes turn any Enter into exactly one CR, CR LF or LF.</small>
+    <button class="button-regular" onclick="saveSerial()">Save</button>
+    <div class="msg" id="m_serial"></div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- settings: wifi -->
+<section data-page="settings/wifi">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic"><h2>Wi-Fi status</h2><div id="wifi-status"></div></div>
+  <div class="card-generic"><h2>Wi-Fi settings</h2>
+    <label><input type="checkbox" role="switch" id="w_sta">Connect to a Wi-Fi network (off = own access point)</label>
+    <div class="form-column-2">
+      <div><label class="l">Network</label><input id="c_wifi_ssid" list="ssids"><datalist id="ssids"></datalist></div>
+      <div><label class="l">Password</label><input id="c_wifi_pass" type="password" autocomplete="new-password"></div>
+      <div><label class="l">Hostname</label><input id="c_hostname"></div>
+    </div>
+    <button class="button-compact outline" onclick="scan()">Scan for networks</button>
+    <div style="height:16px"></div>
+    <label><input type="checkbox" id="c_static_ip">Static IP</label>
+    <div class="form-column-2">
+      <div><label class="l">IP address</label><input id="c_ip"></div><div><label class="l">Netmask</label><input id="c_mask"></div>
+      <div><label class="l">Gateway</label><input id="c_gw"></div><div><label class="l">DNS</label><input id="c_dns"></div>
+    </div>
+    <small class="input-description">Changes are applied after a reboot.</small>
+    <button class="button-regular" onclick="$('c_wifi_mode').value=$('w_sta').checked?'sta':'ap';saveCfg('network',['wifi_mode','wifi_ssid','wifi_pass','hostname','static_ip','ip','mask','gw','dns'],'m_net')">Save</button>
+    <div class="msg" id="m_net"></div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- settings: access point -->
+<section data-page="settings/ap">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic"><h2>Access point settings</h2>
+    <div><label class="l">Mode</label><select id="c_wifi_mode"><option value="ap">Access point (WPA2)</option><option value="sta">Client of a Wi-Fi network</option></select></div>
+    <div class="form-column-2">
+      <div><label class="l">Network name (empty = SerialPill-XXXXXX)</label><input id="c_ap_ssid"></div>
+      <div><label class="l">Password (8–63 characters)</label><input id="c_ap_pass" type="password" autocomplete="new-password"></div>
+    </div>
+    <small class="input-description">The access point is used when no Wi-Fi network is configured. Changes are applied after a reboot.</small>
+    <button class="button-regular" onclick="saveCfg('network',['wifi_mode','ap_ssid','ap_pass'],'m_ap')">Save</button>
+    <div class="msg" id="m_ap"></div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- settings: ssh -->
+<section data-page="settings/ssh">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic"><h2>SSH</h2>
+    <div class="mac-info">Host key: <span class="v copyable" id="fp" onclick="copyEl(this)"></span></div>
+    <div style="height:16px"></div>
+    <label><input type="checkbox" role="switch" id="c_ssh_en">Enable SSH</label>
+    <div class="form-column-2">
+      <div><label class="l">Port</label><input id="c_ssh_port" type="number"></div>
+      <div><label class="l">Idle timeout, minutes (0 = never)</label><input id="c_idle_timeout" type="number"></div>
+    </div>
+    <label><input type="checkbox" role="switch" id="c_ssh_password">Allow password login (public keys are always allowed)</label>
+    <small class="input-description">Enabling/disabling SSH or changing the port is applied after a reboot.</small>
+    <button class="button-regular" onclick="saveCfg('access',['ssh_en','ssh_port','ssh_password','idle_timeout'],'m_ssh')">Save</button>
+    <div class="msg" id="m_ssh"></div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- settings: telnet -->
+<section data-page="settings/telnet">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic"><h2>Telnet</h2>
+    <label><input type="checkbox" role="switch" id="c_telnet_en">Enable telnet</label>
+    <div class="form-column-2"><div><label class="l">Port</label><input id="c_telnet_port" type="number"></div></div>
+    <small class="input-description">Telnet sends passwords in clear text – use it on trusted management networks only.</small>
+    <button class="button-regular" onclick="saveCfg('access',['telnet_en','telnet_port'],'m_tel')">Save</button>
+    <div class="msg" id="m_tel"></div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- settings: login banner -->
+<section data-page="settings/banner">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic"><h2>Login banner</h2>
+    <div><label class="l">Shown before login on SSH, telnet and the web login page (empty = no banner)</label><textarea id="c_banner" rows="5" maxlength="511" style="font-family:var(--pico-font-family-monospace)"></textarea></div>
+    <small class="input-description">Plain text, up to 511 characters. Applied immediately.</small>
+    <button class="button-regular" onclick="saveCfg('access',['banner'],'m_banner')">Save</button>
+    <div class="msg" id="m_banner"></div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- settings: web / https -->
+<section data-page="settings/web">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic"><h2>Web access</h2>
+    <label><input type="checkbox" role="switch" id="c_https_redirect">Redirect HTTP to HTTPS</label>
+    <div class="form-column-2"><div><label class="l">Log out after inactivity, minutes (0 = never)</label><input id="c_web_timeout" type="number" min="0" max="10080"></div></div>
+    <button class="button-regular" onclick="saveCfg('access',['https_redirect','web_timeout'],'m_web')">Save</button>
+    <div class="msg" id="m_web"></div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- settings: users -->
+<section data-page="settings/users">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic" data-admin><h2>Users</h2><table id="users"></table>
+    <div style="height:16px"></div>
+    <div class="form-column-2">
+      <div><label class="l">User</label><input id="nu_user"></div>
+      <div><label class="l">Password (8+ characters, empty = keep)</label><input id="nu_pass" type="password" autocomplete="new-password"></div>
+      <div><label class="l">Role</label><select id="nu_role"><option value="operator">operator (console)</option><option value="admin">admin</option></select></div>
+    </div>
+    <button class="button-regular" onclick="saveUser()">Add / update user</button><div class="msg" id="m_users"></div>
+  </div>
+  <div class="card-generic"><h2>SSH public keys</h2>
+    <small class="input-description">Paste a line from ~/.ssh/id_ed25519.pub (ed25519, ecdsa, rsa) or run: ssh-copy-id user@device</small>
+    <div class="form-column-2"><div data-admin><label class="l">User</label><input id="nk_user"></div></div>
+    <div><label class="l">Public key</label><textarea id="nk_key"></textarea></div>
+    <button class="button-regular" onclick="addKey()">Add key</button><div class="msg" id="m_keys"></div>
+  </div>
+  <div class="card-generic"><h2>Change my password</h2>
+    <div class="form-column-2">
+      <div><label class="l">Current password</label><input id="pw_old" type="password" autocomplete="current-password"></div>
+      <div><label class="l">New password</label><input id="pw_new" type="password" autocomplete="new-password"></div>
+    </div>
+    <button class="button-regular" onclick="chpw()">Change</button><div class="msg" id="m_pw"></div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- settings: tacacs -->
+<section data-page="settings/tacacs">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic"><h2>TACACS+ authentication</h2>
+    <label><input type="checkbox" role="switch" id="t_enable">Authenticate SSH, telnet and web logins against TACACS+</label>
+    <div class="form-column-2">
+      <div><label class="l">Server</label><input id="t_host"></div><div><label class="l">Port</label><input id="t_port" type="number"></div>
+      <div><label class="l">Shared key</label><input id="t_key" type="password" autocomplete="new-password"></div>
+      <div><label class="l">Timeout, seconds</label><input id="t_timeout" type="number"></div>
+    </div>
+    <label><input type="checkbox" id="t_pap">Use PAP (default: ASCII login)</label>
+    <label><input type="checkbox" id="t_fallback">Use local users when the server is unreachable</label>
+    <label><input type="checkbox" id="t_admin">TACACS+ users may administer the device</label>
+    <small class="input-description">Local users with a password are always checked first (break-glass administrator).</small>
+    <button class="button-regular" onclick="saveCfg('tacacs',['enable','host','port','key','timeout','pap','fallback','admin'],'m_tac','t_')">Save</button>
+    <div class="msg" id="m_tac"></div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- settings: device name -->
+<section data-page="settings/device">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic"><h2 class="fw-h">Device info</h2>
+    <small class="input-description fw-sub">Change your device name</small>
+    <div class="form-column-2">
+      <div><label class="l">Device name</label><input id="c_name" maxlength="64" placeholder="SerialPill"></div>
+      <div><label class="l fw-l"><span class="copyable" onclick="copyEl($('dev_id'))">Device id</span></label><input id="dev_id" readonly></div>
+    </div>
+    <button class="button-regular" onclick="saveCfg('system',['name'],'m_name')">Save</button>
+    <div class="msg" id="m_name"></div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- settings: location and time -->
+<section data-page="settings/time">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic"><h2 class="fw-h">Location and time</h2>
+    <small class="input-description fw-sub">Time zone and time server of the device (used for log timestamps)</small>
+    <div class="mac-info">Device time: <span class="v" id="devtime">–</span></div>
+    <div class="form-column-2">
+      <div><label class="l">Time zone</label><select id="tz_sel" onchange="if(this.value)$('c_timezone').value=this.value"></select></div>
+      <div><label class="l">POSIX TZ string</label><input id="c_timezone"></div>
+      <div><label class="l">NTP server</label><input id="c_ntp_server"></div>
+    </div>
+    <button class="button-regular" onclick="saveCfg('system',['timezone','ntp_server'],'m_time')">Save</button>
+    <div class="msg" id="m_time"></div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- settings: authentication -->
+<section data-page="settings/auth">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic hide" id="auth_set"><h2 class="fw-h">Set administrator password</h2>
+    <small class="input-description fw-sub">The password setup was skipped: anyone on the network can open the web UI, and SSH/telnet logins are disabled.</small>
+    <div class="form-column-2">
+      <div><label class="l">User</label><input id="as_user" value="admin" autocomplete="username"></div><div></div>
+      <div><label class="l">Password (8+ characters)</label><input id="as_pass" type="password" autocomplete="new-password"></div>
+      <div><label class="l">Repeat password</label><input id="as_pass2" type="password" autocomplete="new-password"></div>
+    </div>
+    <button class="button-regular" onclick="setAdmin()">Set password</button><div class="msg" id="m_as"></div>
+  </div>
+  <div class="card-generic" id="auth_chg"><h2 class="fw-h">Authentication</h2>
+    <small class="input-description fw-sub">Change the password of <span id="auth_user"></span></small>
+    <div class="form-column-2">
+      <div><label class="l">Current password</label><input id="pw_old2" type="password" autocomplete="current-password"></div>
+      <div><label class="l">New password</label><input id="pw_new2" type="password" autocomplete="new-password"></div>
+    </div>
+    <button class="button-regular" onclick="chpw2()">Change</button><div class="msg" id="m_pw2"></div>
+    <small class="input-description">Other users, roles and SSH keys: <a href="#/settings/users">Users and SSH keys</a>. Central login: <a href="#/settings/tacacs">TACACS+</a>.</small>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- settings: debug -->
+<section data-page="settings/debug">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic"><h2 class="fw-h">Debug</h2>
+    <small class="input-description fw-sub">Send the audit log to a syslog server</small>
+    <div><label class="l">Syslog server (UDP 514, empty = off)</label><input id="c_syslog_host"></div>
+    <button class="button-regular" onclick="saveCfg('log',['syslog_host'],'m_log')">Save</button>
+    <a class="button-regular outline" role="button" href="#/log">Open audit log</a>
+    <div class="msg" id="m_log"></div>
+  </div>
+  <div class="card-generic"><h2>Device information</h2><div id="devinfo"></div></div>
+</section>
+
+<!-- ---------------------------------------------------- settings: TLS -->
+<section data-page="settings/tls">
+  <a class="back" onclick="go('settings')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-left"/></svg>Settings</a>
+  <div class="card-generic"><h2 class="fw-h">TLS configuration</h2>
+    <small class="input-description fw-sub">Certificate of the HTTPS web server (port 443)</small>
+    <div id="tlsinfo"></div>
+    <button class="button-regular outline" onclick="tlsDel()">Create new self-signed certificate</button>
+    <div class="msg" id="m_tls2"></div>
+  </div>
+  <div class="card-generic"><h2 class="fw-h">Upload certificate</h2>
+    <small class="input-description fw-sub">Replace the self-signed certificate with one issued by your CA</small>
+    <div><label class="l">Certificate (PEM, may include the chain)</label><textarea id="tls_cert"></textarea></div>
+    <div><label class="l">Private key (PEM, unencrypted)</label><textarea id="tls_key"></textarea></div>
+    <button class="button-regular" onclick="tls()">Install</button>
+    <div class="msg" id="m_tls"></div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------- audit log -->
+<section data-page="log">
+  <div class="card-generic"><h2>Audit log</h2><button class="button-compact outline" onclick="loadLog()">Refresh</button><div style="height:12px"></div><table id="log"></table></div>
+</section>
+
+<!-- ---------------------------------------------------- system -->
+<section data-page="system">
+  <div class="card-generic">
+    <h2 class="fw-h">Firmware information</h2>
+    <small class="input-description fw-sub">Check for updates or install new versions of firmware</small>
+    <div class="form-column-2">
+      <div><label class="l fw-l"><span class="copyable" onclick="copyEl($('fw_id'))">Firmware ID</span></label><input id="fw_id" readonly></div>
+      <div><label class="l fw-l"><span class="copyable" onclick="copyEl($('fw_idf'))">Platform</span></label><input id="fw_idf" readonly></div>
+    </div>
+    <div class="fw-t">Official Shelly firmware</div>
+    <table class="fw-table"><thead><tr><th>Build</th><th>Version</th><th></th></tr></thead><tbody id="fw_rows"><tr><td colspan="3">Not checked yet</td></tr></tbody></table>
+    <button class="button-regular" onclick="check()">Check for updates</button>
+    <h2 class="fw-h fw-gap">Firmware file image</h2>
+    <div class="drop" id="drop" onclick="$('fwfile').click()">
+      <span class="drop-text">Drag and drop to upload</span>
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cloud"/></svg>
+      <span class="drop-file" id="drop_file"></span>
+      <input type="file" id="fwfile" accept=".bin,.zip" hidden>
+      <button type="button" class="button-regular outline">Or browse files</button>
+    </div>
+    <small class="input-description">SerialPill update: SerialPill-x.y.z-ota.bin (rolled back automatically if it does not start). Official Shelly package: Pill-x.y.z.zip.</small>
+    <button class="button-regular" onclick="uploadFile()">Update from file</button>
+    <h2 class="fw-h fw-gap">Firmware file image link</h2>
+    <input id="fw_url" placeholder="https://…/SerialPill-x.y.z-ota.bin or Pill-x.y.z.zip">
+    <button class="button-regular" onclick="fromLink()">Update from link</button>
+    <progress id="p_fw" value="0" max="100" class="hide"></progress><div class="msg" id="m_fw"></div>
+  </div>
+</section>
+
+    </main>
+    <footer id="foot" class="foot"></footer>
+  </div>
+</div>
+
+<script src="/xterm.js"></script>
+<script src="/xterm-fit.js"></script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const BAUDS=[300,1200,2400,4800,9600,19200,38400,57600,115200,230400,460800,921600];
+const TZS=[["UTC","UTC0"],["Europe/London, Lisbon","GMT0BST,M3.5.0/1,M10.5.0"],["Europe/Warsaw, Berlin, Paris, Rome, Madrid","CET-1CEST,M3.5.0,M10.5.0/3"],
+  ["Europe/Helsinki, Kyiv, Athens","EET-2EEST,M3.5.0/3,M10.5.0/4"],["Europe/Istanbul","<+03>-3"],["Europe/Moscow","MSK-3"],["Asia/Dubai","<+04>-4"],
+  ["Asia/Kolkata","IST-5:30"],["Asia/Shanghai, Singapore","CST-8"],["Asia/Tokyo","JST-9"],["Australia/Sydney","AEST-10AEDT,M10.1.0,M4.1.0/3"],
+  ["America/New_York","EST5EDT,M3.2.0,M11.1.0"],["America/Chicago","CST6CDT,M3.2.0,M11.1.0"],["America/Denver","MST7MDT,M3.2.0,M11.1.0"],
+  ["America/Los_Angeles","PST8PDT,M3.2.0,M11.1.0"],["America/Sao_Paulo","<-03>3"]];
+const FMTS=["8N1","8E1","8O1","8N2","7E1","7O1","7N1","7E2"];
+let me=null,cfg={},st={},term=null,ws=null,fit=null,page="";
+
+async function api(method,url,body,raw){
+  const h={"X-Requested-With":"SerialPill"};
+  if(body!==undefined&&!raw&&typeof body!=="string"){h["Content-Type"]="application/json";body=JSON.stringify(body)}
+  const r=await fetch(url,{method,headers:h,body,credentials:"same-origin"});
+  let j={};try{j=await r.json()}catch(e){}
+  if(r.status===401&&me){showLogin();throw new Error("session expired")}
+  if(!r.ok)throw new Error(j.error||("HTTP "+r.status));
+  return j;
+}
+function msg(id,t,ok){const m=$(id);m.textContent=t;m.className="msg "+(ok?"o":"e")}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function fillSel(el,vals){el.innerHTML=vals.map(v=>`<option>${v}</option>`).join("")}
+function copyEl(e){try{navigator.clipboard.writeText(e.textContent)}catch(x){}e.classList.add("copied");setTimeout(()=>e.classList.remove("copied"),1500)}
+function kv(k,v,c){return `<div class="mac-info">${k}: <span class="v${c?" copyable":""}"${c?' onclick="copyEl(this)"':""}>${esc(v)}</span></div>`}
+
+// ---------------------------------------------------------------- login / setup
+let setupMode=false,INFO={};
+async function boot(){
+  const info=await api("GET","/api/info");INFO=info;
+  document.title=info.hostname+" – SerialPill";
+  $("ltitle").textContent=info.hostname;
+  if(info.banner){$("lbanner").textContent=info.banner;$("lbanner").classList.remove("hide")}
+  if(info.https&&!info.secure)$("lhint").innerHTML='HTTPS is available: <a href="https://'+location.host+'/">switch to HTTPS</a>.';
+  try{me=await api("GET","/api/whoami");start()}catch(e){
+    setupMode=!info.claimed;
+    if(setupMode&&info.auth_skip){try{await api("POST","/api/setup",{skip:true});me=await api("GET","/api/whoami");return start()}catch(x){}}
+    if(setupMode){$("lhead").textContent="Initial setup";$("lhint").textContent="Set the administrator password, or skip it. SSH and telnet logins stay disabled until a password is set.";
+      ["lp2w","lsetup","lskip"].forEach(i=>$(i).classList.remove("hide"));$("lbtn").textContent="Create administrator"}
+    showLogin();
+  }
+}
+function showLogin(){$("app").classList.add("hide");$("login").classList.remove("hide");$("lp").focus()}
+$("lbtn").onclick=async()=>{
+  try{
+    if(setupMode){
+      if($("lp").value!==$("lp2").value)return msg("lmsg","passwords differ");
+      await api("POST","/api/setup",{user:$("lu").value,password:$("lp").value,https_redirect:$("ls_redirect").checked,telnet_en:$("ls_telnet").checked});
+    }else await api("POST","/api/login",{user:$("lu").value,password:$("lp").value});
+    $("lp").value=$("lp2").value="";
+    me=await api("GET","/api/whoami");start();
+  }catch(e){msg("lmsg",e.message)}
+};
+$("lskip").onclick=async()=>{
+  if(!confirm("Continue without a password? Anyone on this network can then open the web UI and change the settings."))return;
+  try{await api("POST","/api/setup",{skip:true,https_redirect:$("ls_redirect").checked,telnet_en:$("ls_telnet").checked});
+    me=await api("GET","/api/whoami");start()}catch(e){msg("lmsg",e.message)}
+};
+$("lp").onkeydown=$("lp2").onkeydown=e=>{if(e.key==="Enter")$("lbtn").click()};
+async function logout(){try{await api("POST","/api/logout")}catch(e){}if(ws)ws.close();location.hash="";location.reload()}
+
+// ---------------------------------------------------------------- routing
+async function start(){
+  try{INFO=await api("GET","/api/info")}catch(e){}
+  $("login").classList.add("hide");$("app").classList.remove("hide");
+  const admin=me.role==="admin";
+  document.querySelectorAll("[data-admin]").forEach(e=>e.classList.toggle("hide",!admin));
+  if(!admin)$("t-users").textContent="SSH keys and password";
+  const skipped=!!INFO.auth_skip;
+  $("skipwarn").classList.toggle("hide",!skipped);$("auth_set").classList.toggle("hide",!skipped);$("auth_chg").classList.toggle("hide",skipped);
+  $("auth_user").textContent=me.user;
+  $("tz_sel").innerHTML='<option value="">Custom</option>'+TZS.map(z=>`<option value="${z[1]}">${z[0]}</option>`).join("");
+  fillSel($("tbaud"),BAUDS);fillSel($("tfmt"),FMTS);fillSel($("c_baud"),BAUDS);fillSel($("c_format"),FMTS);
+  window.onhashchange=route;route();
+  if(admin)loadCfg();
+  loadStatus();setInterval(loadStatus,5000);
+}
+function go(p){location.hash="#/"+p}
+function route(){
+  page=location.hash.replace(/^#\/?/,"")||"home";
+  const known=[...document.querySelectorAll("section[data-page]")].map(s=>s.dataset.page);
+  if(!known.includes(page))page="home";
+  document.querySelectorAll("section[data-page]").forEach(s=>s.classList.toggle("hide",s.dataset.page!==page));
+  const top=page.split("/")[0];
+  document.querySelectorAll(".rail a[data-r]").forEach(a=>a.classList.toggle("on",a.dataset.r===top));
+  window.scrollTo(0,0);
+  if(page==="home")openTerm();
+  if(page==="settings/users")loadUsers();
+  if(page==="log")loadLog();
+  if(page==="settings/wifi")renderWifi();
+}
+
+// ---------------------------------------------------------------- console
+function openTerm(){
+  if(!term){
+    term=new Terminal({scrollback:20000,fontSize:innerWidth<500?12:14,cursorBlink:true,theme:{background:"#0b1116",foreground:"#edf0f3",cursor:"#1095c1",selectionBackground:"#1095c155"}});
+    fit=new FitAddon.FitAddon();term.loadAddon(fit);term.open($("term"));
+    // local echo is always on in the web console
+    term.onData(d=>{term.write(d.replace(/\r/g,"\r\n"));if(ws&&ws.readyState===1)ws.send(new TextEncoder().encode(d))});
+    window.addEventListener("resize",()=>fit.fit());
+    $("tbaud").onchange=$("tfmt").onchange=$("tenter").onchange=async()=>{
+      const s={baud:+$("tbaud").value,format:$("tfmt").value};if(me.role==="admin")s.enter=$("tenter").value;
+      try{await api("POST","/api/config",{serial:s});loadCfg()}catch(e){alert(e.message)}term.focus()};
+  }
+  setTimeout(()=>{fit.fit();term.focus()},0);
+  if(ws&&ws.readyState<=1)return;
+  ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/api/ws");
+  ws.binaryType="arraybuffer";
+  ws.onopen=()=>{$("tstat").textContent="Connected";$("tstat").className="st on"};
+  ws.onmessage=e=>term.write(new Uint8Array(e.data));
+  ws.onclose=()=>{$("tstat").textContent="Disconnected – reconnecting";$("tstat").className="st";setTimeout(()=>{if(page==="home")openTerm()},2000)};
+}
+
+// ---------------------------------------------------------------- status (header, footer, subtitles)
+function on(id,v){$(id).classList.toggle("on",!!v)}
+async function loadStatus(){
+  try{
+    st=await api("GET","/api/status");
+    const w=st.wifi,s=st.serial;
+    $("hname").textContent=cfg.system&&cfg.system.name||cfg.network&&cfg.network.hostname||st.device;
+    on("ic-wifi",w.connected);on("ic-ssh",!cfg.access||cfg.access.ssh_en);on("ic-telnet",cfg.access&&cfg.access.telnet_en);
+    on("ic-tls",st.tls_installed);on("ic-usb",cfg.serial&&cfg.serial.usb_bridge);
+    $("ic-wifi").title=w.connected?`Wi-Fi ${w.ssid}, ${w.rssi} dBm`:(w.setup_ap?"Access point active":"Wi-Fi not connected");
+    const up=st.uptime,d=Math.floor(up/86400),h=Math.floor(up%86400/3600),m=Math.floor(up%3600/60);
+    $("foot").innerHTML=`<span>SerialPill ${esc(w.mac.replace(/:/g,"").toUpperCase())}</span><span>${esc(st.version)}</span><span>${esc(st.slot)}</span><span>up ${d}d ${h}h ${m}m</span><span>${esc(me.user)} (${esc(me.role)})</span>`;
+    $("sess").innerHTML="<tr><th>Type</th><th>Who</th><th>Duration</th><th>Sent</th></tr>"+st.sessions.map(x=>`<tr><td>${x.kind}</td><td>${esc(x.who)}</td><td>${x.seconds} s</td><td>${x.sent} B</td></tr>`).join("");
+    $("sub-serial").innerHTML=`<span class="v">${s.baud} ${s.format}</span>${s.swap?", RX/TX swapped":""}${cfg.serial?", Enter: "+({raw:"as sent",cr:"CR",crlf:"CR LF",lf:"LF"})[cfg.serial.enter]:""}`;
+    $("sub-wifi").innerHTML=w.connected?`Status: Connected. RSSI: ${w.rssi} dBm<br>SSID: ${esc(w.ssid)}, IP: <span class="v">${esc(w.ip)}</span>`:(w.setup_ap?"Access point active":"Not connected");
+    $("sub-ssh").innerHTML=cfg.access?(cfg.access.ssh_en?`Enabled, port <span class="v">${cfg.access.ssh_port}</span>`:"Disabled"):"";
+    $("sub-telnet").innerHTML=cfg.access?(cfg.access.telnet_en?`Enabled, port <span class="v">${cfg.access.telnet_port}</span>`:"Disabled"):"";
+    $("sub-banner").textContent=cfg.access?(cfg.access.banner?cfg.access.banner.split("\n")[0]:"No banner"):"";
+    $("sub-web").innerHTML=cfg.access?(cfg.access.https_redirect?"HTTPS only":"HTTP and HTTPS")+", "+(cfg.access.web_timeout?`log out after <span class="v">${cfg.access.web_timeout} min</span>`:"no automatic logout"):"";
+    $("sub-tls").textContent=st.tls_installed?(st.tls_selfsigned?"Self-signed certificate":"Certificate "+(st.tls_subject||"")):"No certificate";
+    $("sub-device").innerHTML=`<span class="v">${esc(cfg.system&&cfg.system.name||st.device)}</span>`;
+    $("sub-time").textContent=(st.time>1600000000?new Date(st.time*1000).toLocaleString():"not synchronised")+(cfg.system?" · "+cfg.system.timezone:"");
+    $("sub-auth").textContent=INFO.auth_skip?"No password set":"Password for "+me.user;
+    $("sub-fw").textContent="SerialPill "+st.version;
+    $("sub-debug").textContent=cfg.log?(cfg.log.syslog_host?"Syslog to "+cfg.log.syslog_host:"Syslog off"):"";
+    $("devtime").textContent=st.time>1600000000?new Date(st.time*1000).toLocaleString():"not synchronised yet";
+    $("dev_id").value=st.device;
+    $("tlsinfo").innerHTML=st.tls_installed?kv("Type",st.tls_selfsigned?"Self-signed (created on this device)":"Uploaded")+kv("Subject",st.tls_subject||"")+
+      kv("Issuer",st.tls_issuer||"")+kv("Valid until",st.tls_valid_to||"")+kv("SHA-256 fingerprint",st.tls_sha256||"",true)+
+      kv("HTTPS server",st.https_running?"running on port 443":"starts after a reboot"):kv("Type","none");
+    if(cfg.serial)pinout();
+    $("sub-ap").textContent=cfg.network?(cfg.network.wifi_mode==="ap"?"Active":"Used when no Wi-Fi network is configured"):"";
+    $("sub-tacacs").textContent=cfg.tacacs?(cfg.tacacs.enable?`Enabled, ${cfg.tacacs.host}`:"Disabled"):"";
+    $("ser-tx").textContent=s.tx_pin;$("ser-rx").textContent=s.rx_pin;$("ser-tr").textContent=`rx ${s.rx_bytes} B, tx ${s.tx_bytes} B`;
+    $("fp").textContent=st.ssh_fingerprint;
+    if(st.build){const d=new Date(st.build.date+" "+st.build.time),z=n=>String(n).padStart(2,"0");
+      const ts=isNaN(d)?"":`${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}/`;
+      $("fw_id").value=`${ts}${st.version}-g${st.build.sha.slice(0,7)}`;$("fw_idf").value="ESP-IDF "+st.build.idf}
+    $("devinfo").innerHTML=kv("Device",st.device,true)+kv("Firmware",`SerialPill ${st.version} (${st.slot})`)+kv("MAC address",w.mac,true)+
+      kv("IP address",w.ip||"–",true)+kv("SSH host key",st.ssh_fingerprint,true)+kv("Memory",`${st.heap_free} B free (min ${st.heap_min})`)+
+      (st.restore.progress>=0||st.restore.state!=="idle"?kv("Shelly restore",st.restore.state+(st.restore.progress>=0?" "+st.restore.progress+"%":"")):"");
+    if(page==="settings/wifi")renderWifi();
+  }catch(e){}
+}
+function renderWifi(){
+  const w=st.wifi;if(!w)return;
+  $("wifi-status").innerHTML=w.connected?kv("Network",w.ssid,true)+kv("IPv4 address",w.ip,true)+kv("MAC address",w.mac,true)+
+    kv("Status",`Connected. RSSI: ${w.rssi} dBm`)+kv("Channel",w.channel)+kv("Local hostname",`http://${cfg.network?cfg.network.hostname:""}.local`,true)
+    :kv("Status",w.setup_ap?"Access point active":"Not connected")+kv("MAC address",w.mac,true);
+}
+
+// ---------------------------------------------------------------- configuration
+const PREFIX={tacacs:"t_"};
+async function loadCfg(){
+  cfg=await api("GET","/api/config");
+  for(const sec in cfg)for(const k in cfg[sec]){const el=$((PREFIX[sec]||"c_")+k);if(!el)continue;
+    if(el.type==="checkbox")el.checked=cfg[sec][k];else el.value=cfg[sec][k]}
+  $("w_sta").checked=cfg.network.wifi_mode==="sta";
+  $("tz_sel").value=TZS.some(z=>z[1]===cfg.system.timezone)?cfg.system.timezone:"";
+  $("tbaud").value=cfg.serial.baud;$("tfmt").value=cfg.serial.format;$("tenter").value=cfg.serial.enter;
+  loadStatus();
+}
+async function saveCfg(sec,keys,m,prefix){
+  const o={};prefix=prefix||"c_";
+  keys.forEach(k=>{const el=$(prefix+k);o[k]=el.type==="checkbox"?el.checked:(el.type==="number"||k==="baud"?+el.value:el.value)});
+  try{const r=await api("POST","/api/config",{[sec]:o});msg(m,r.reboot_required?"Saved – reboot to apply":"Saved",true);loadCfg()}catch(e){msg(m,e.message)}
+}
+async function saveSerial(){
+  await saveCfg('serial',['baud','format','enter','swap','out_crlf','usb_bridge'],'m_serial');
+  try{await api("POST","/api/config",{access:{echo:$("c_echo").checked}})}catch(e){msg("m_serial",e.message)}
+}
+async function scan(){try{const l=await api("GET","/api/wifi/scan");$("ssids").innerHTML=l.map(n=>`<option value="${esc(n.ssid)}">${n.rssi} dBm</option>`).join("");msg("m_net",l.length+" networks found",true)}catch(e){msg("m_net",e.message)}}
+
+// ---------------------------------------------------------------- users and keys
+async function loadUsers(){
+  if(me.role!=="admin")return;
+  const u=await api("GET","/api/users");
+  $("sub-users").textContent=u.length+" user(s), "+u.reduce((a,x)=>a+x.keys.length,0)+" SSH key(s)";
+  $("users").innerHTML="<tr><th>User</th><th>Role</th><th>Password</th><th>SSH keys</th><th></th></tr>"+u.map(x=>
+    `<tr><td>${esc(x.user)}</td><td>${x.role}</td><td>${x.password}</td><td>${x.keys.map((k,i)=>`<div><code>${esc(k.type)} ${esc(k.fingerprint)}</code> ${esc(k.comment)} <a href="#" onclick="delKey('${esc(x.user)}',${i});return false">remove</a></div>`).join("")||"–"}</td>
+     <td><a href="#" onclick="delUser('${esc(x.user)}');return false">delete</a></td></tr>`).join("");
+}
+async function saveUser(){try{await api("POST","/api/users",{user:$("nu_user").value,password:$("nu_pass").value,role:$("nu_role").value});$("nu_pass").value="";msg("m_users","Saved",true);loadUsers()}catch(e){msg("m_users",e.message)}}
+async function delUser(u){if(!confirm("Delete user "+u+"?"))return;try{await api("DELETE","/api/users?user="+encodeURIComponent(u));loadUsers()}catch(e){msg("m_users",e.message)}}
+async function addKey(){try{await api("POST","/api/keys",{user:$("nk_user").value||me.user,key:$("nk_key").value.trim()});$("nk_key").value="";msg("m_keys","Key added",true);loadUsers()}catch(e){msg("m_keys",e.message)}}
+async function delKey(u,i){if(!confirm("Remove key?"))return;try{await api("DELETE",`/api/keys?user=${encodeURIComponent(u)}&index=${i}`);loadUsers()}catch(e){msg("m_users",e.message)}}
+async function chpw(){try{await api("POST","/api/password",{old:$("pw_old").value,new:$("pw_new").value});$("pw_old").value=$("pw_new").value="";msg("m_pw","Password changed",true)}catch(e){msg("m_pw",e.message)}}
+
+// ---------------------------------------------------------------- certificate
+async function tls(){try{const r=await api("POST","/api/tls",{cert:$("tls_cert").value,key:$("tls_key").value});$("tls_key").value="";msg("m_tls","Installed "+r.subject+" – reboot to use it",true);loadStatus()}catch(e){msg("m_tls",e.message)}}
+async function tlsDel(){if(!confirm("Replace the current certificate with a new self-signed one?"))return;try{await api("DELETE","/api/tls");msg("m_tls2","Created – reboot to use it",true);loadStatus()}catch(e){msg("m_tls2",e.message)}}
+
+// ---------------------------------------------------------------- serial pinout (follows the swap switch)
+function pinout(){const sw=$("c_swap").checked,tx="TXD (output) → external device RXD",rx="RXD (input) ← external device TXD";
+  $("pin2l").textContent=sw?"RXD":"TXD";$("pin3l").textContent=sw?"TXD":"RXD";
+  $("pin2d").textContent=sw?rx:tx;$("pin3d").textContent=sw?tx:rx;}
+
+// ---------------------------------------------------------------- authentication
+async function setAdmin(){if($("as_pass").value!==$("as_pass2").value)return msg("m_as","passwords differ");
+  try{await api("POST","/api/setup",{user:$("as_user").value,password:$("as_pass").value});msg("m_as","Password set – log in again",true);setTimeout(()=>location.reload(),1500)}catch(e){msg("m_as",e.message)}}
+async function chpw2(){try{await api("POST","/api/password",{old:$("pw_old2").value,new:$("pw_new2").value});$("pw_old2").value=$("pw_new2").value="";msg("m_pw2","Password changed",true)}catch(e){msg("m_pw2",e.message)}}
+
+// ---------------------------------------------------------------- firmware
+function pickFile(f){if(!f)return;const dt=new DataTransfer();dt.items.add(f);$("fwfile").files=dt.files;$("drop_file").textContent=f.name+" ("+Math.round(f.size/1024)+" KB)"}
+(function(){const d=$("drop");
+  ["dragenter","dragover"].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.add("over")}));
+  ["dragleave","drop"].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.remove("over")}));
+  d.addEventListener("drop",e=>pickFile(e.dataTransfer.files[0]));
+  $("fwfile").addEventListener("change",e=>pickFile(e.target.files[0]));})();
+function progress(on){$("p_fw").classList.toggle("hide",!on)}
+function watchJob(){const t=setInterval(async()=>{try{const s=await api("GET","/api/status");$("p_fw").value=Math.max(0,s.restore.progress);
+  msg("m_fw",s.restore.state,!s.restore.state.startsWith("failed"));if(s.restore.state.startsWith("failed"))clearInterval(t)}catch(e){msg("m_fw","Device is rebooting…",true)}},2000)}
+function uploadFile(){
+  const f=$("fwfile").files[0];if(!f)return msg("m_fw","Choose or drop a file first");
+  const shelly=/\.zip$/i.test(f.name);
+  if(shelly&&!confirm("Replace SerialPill with the official Shelly firmware from "+f.name+"?"))return;
+  progress(true);
+  const x=new XMLHttpRequest();x.open("POST",shelly?"/api/shelly/upload":"/api/firmware");x.setRequestHeader("X-Requested-With","SerialPill");
+  x.upload.onprogress=e=>{if(e.lengthComputable)$("p_fw").value=e.loaded*100/e.total};
+  x.onload=async()=>{let j={};try{j=JSON.parse(x.responseText)}catch(e){}
+    if(x.status===200){msg("m_fw","Done – rebooting…",true);setTimeout(()=>location.reload(),25000)}
+    else if(shelly&&x.status===409){try{await api("POST","/api/shelly/prepare");msg("m_fw","SerialPill moved itself to slot app_1 and reboots – upload the file again in about 30 s",true)}catch(e){msg("m_fw",e.message)}}
+    else msg("m_fw",j.error||("HTTP "+x.status))};
+  x.onerror=()=>msg("m_fw","Upload failed");x.send(f);
+}
+async function fromLink(){
+  const u=$("fw_url").value.trim();if(!u)return msg("m_fw","Enter a link");
+  if(/\.zip(\?|$)/i.test(u)&&!confirm("Replace SerialPill with the official Shelly firmware from this link?"))return;
+  try{await api("POST","/api/firmware/url",{url:u});progress(true);msg("m_fw","Downloading…",true);watchJob()}catch(e){msg("m_fw",e.message)}
+}
+async function check(){
+  $("fw_rows").innerHTML='<tr><td colspan="3">Checking…</td></tr>';
+  try{const r=await api("GET","/api/shelly/check");const rows=["stable","beta"].filter(c=>r[c]).map(c=>
+    `<tr><td>${esc(r[c].build_id||"")}</td><td>${esc(r[c].version)} (${c})</td><td><button class="button-compact danger" onclick="restore('${c}')">Restore</button></td></tr>`);
+    $("fw_rows").innerHTML=rows.join("")||'<tr><td colspan="3">No updates</td></tr>'}
+  catch(e){$("fw_rows").innerHTML=`<tr><td colspan="3">${esc(e.message)}</td></tr>`}
+}
+async function restore(ch){
+  if(!confirm(`Replace SerialPill with the official Shelly ${ch} firmware from Shelly's server?`))return;
+  try{const r=await api("POST","/api/shelly/restore?channel="+ch);progress(true);
+    msg("m_fw",r.rebooting?"Moving to slot app_1 and rebooting; the restore continues automatically":"Downloading…",true);watchJob()}catch(e){msg("m_fw",e.message)}
+}
+async function sysop(url,q,m){if(!confirm(q))return;try{await api("POST",url);msg(m,"Rebooting…",true);setTimeout(()=>location.reload(),15000)}catch(e){msg(m,e.message)}}
+
+
+async function loadLog(){try{const l=await api("GET","/api/log");$("log").innerHTML="<tr><th>Time</th><th>Event</th></tr>"+l.reverse().map(e=>`<tr><td style="white-space:nowrap">${e.time?new Date(e.time*1000).toLocaleString():"+"+e.uptime+" s"}</td><td>${esc(e.msg)}</td></tr>`).join("")}catch(e){}}
+
+boot().catch(e=>{document.body.textContent="SerialPill: "+e.message});
+</script>
+</body>
+</html>

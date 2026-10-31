@@ -1,0 +1,11 @@
+# Identical to the stock Shelly Pill layout (partition table at 0x10000) so
+# Shelly OTA packages and SerialPill can replace each other in place.
+# Name,    Type, SubType, Offset,   Size
+otadata,   data, ota,     0x11000,  0x2000
+nvs,       data, nvs,     0x14000,  0xC000
+app_0,     app,  ota_0,   0x20000,  0x280000
+fs_0,      data, 0x82,    0x2A0000, 0x100000
+app_1,     app,  ota_1,   0x3A0000, 0x280000
+fs_1,      data, 0x82,    0x620000, 0x100000
+scratch,   data, 0x80,    0x7E0000, 0x10000
+shelly,    data, 0x88,    0x7F0000, 0x10000

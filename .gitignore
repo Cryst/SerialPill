@@ -1,0 +1,14 @@
+.pio/
+dist/
+managed_components/
+dependencies.lock
+sdkconfig.pill
+sdkconfig.pill.old
+# device flash dumps contain WiFi credentials and Shelly device keys
+backup/
+# proprietary Shelly firmware (downloaded on demand)
+shelly-fw/
+__pycache__/
+test/.credentials
+sdkconfig.pill-debug
+sdkconfig.pill-debug.old
